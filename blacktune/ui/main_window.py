@@ -9,22 +9,19 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QDragEnterEvent, QDropEvent
 from PyQt6.QtWidgets import (
     QFileDialog,
-    QLabel,
     QMainWindow,
     QStatusBar,
     QTabWidget,
-    QVBoxLayout,
-    QWidget,
 )
 
 from blacktune.ui.theme import dark_stylesheet
 from blacktune.ui.viewer_tab import ViewerTab
 from blacktune.ui.analysis_tab import AnalysisTab
 from blacktune.ui.tune_tab import TuneTab
+from blacktune.ui.history_tab import HistoryTab
 
 # Supported file extensions for drag-and-drop filtering
 _SUPPORTED_EXTENSIONS = {".bbl", ".bfl", ".csv"}
@@ -44,6 +41,7 @@ class MainWindow(QMainWindow):
         self._flight_log = None  # Optional[FlightLog]
         self._analysis_result = None  # Optional[AnalysisResult]
         self._recommendation = None  # Optional[TuneRecommendation]
+        self._current_file: str = "unknown"
 
         # Tab widget exposed as public attribute for later task wiring
         self.tabs: Optional[QTabWidget] = None
@@ -93,15 +91,12 @@ class MainWindow(QMainWindow):
         self.tune_tab.set_analyze_callback(self._on_tune_requested)
         self.tabs.addTab(self.tune_tab, "Tune")
 
-        # History tab -- placeholder until Task 13
-        history_page = QWidget()
-        history_layout = QVBoxLayout(history_page)
-        history_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        history_placeholder = QLabel("Load a BBL file to begin")
-        history_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        history_placeholder.setStyleSheet("color: #8888aa; font-size: 16px;")
-        history_layout.addWidget(history_placeholder)
-        self.tabs.addTab(history_page, "History")
+        # History tab -- real implementation
+        self.history_tab = HistoryTab()
+        self.tabs.addTab(self.history_tab, "History")
+
+        # Refresh history when the user switches to the History tab
+        self.tabs.currentChanged.connect(self._on_tab_changed)
 
         self.setCentralWidget(self.tabs)
 
@@ -135,7 +130,8 @@ class MainWindow(QMainWindow):
             return
 
         self._flight_log = flight_log
-        filename = os.path.basename(path)
+        self._current_file = os.path.basename(path)
+        filename = self._current_file
 
         # Build status info
         parts = [
@@ -179,6 +175,30 @@ class MainWindow(QMainWindow):
         )
         self.tabs.setCurrentWidget(self.tune_tab)
         self.statusBar().showMessage("Tune recommendation generated")
+
+        # Save session to history
+        from dataclasses import asdict
+        from blacktune.history import save_session
+
+        save_session(
+            filename=self._current_file,
+            current_pids=self._flight_log.current_pids.as_dict(),
+            suggested_pids=rec.suggested_pids.as_dict(),
+            profile=asdict(profile),
+            metrics={
+                f"{axis}_overshoot": m.overshoot_pct
+                for axis, m in self._analysis_result.step_response.items()
+            },
+        )
+        self.history_tab.refresh()
+
+    # ── Tab switching ────────────────────────────────────────────
+
+    def _on_tab_changed(self, index: int) -> None:
+        """Refresh the history tab whenever the user switches to it."""
+        widget = self.tabs.widget(index)
+        if widget is self.history_tab:
+            self.history_tab.refresh()
 
     # ── Drag & Drop ─────────────────────────────────────────────
 
