@@ -1,12 +1,14 @@
 """BlackTune - FPV PID Autotuner."""
 import sys
 from PyQt6.QtWidgets import QApplication
+from blacktune.ui.main_window import MainWindow
 
 
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("BlackTune")
-    # Window will be created in later tasks
+    window = MainWindow()
+    window.show()
     sys.exit(app.exec())
 
 
