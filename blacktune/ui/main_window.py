@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
 )
 
 from blacktune.ui.theme import dark_stylesheet
+from blacktune.ui.viewer_tab import ViewerTab
 
 # Supported file extensions for drag-and-drop filtering
 _SUPPORTED_EXTENSIONS = {".bbl", ".bfl", ".csv"}
@@ -75,8 +76,12 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
 
-        tab_names = ("Log Viewer", "Analysis", "Tune", "History")
-        for name in tab_names:
+        # Log Viewer -- real implementation
+        self.viewer_tab = ViewerTab()
+        self.tabs.addTab(self.viewer_tab, "Log Viewer")
+
+        # Remaining tabs -- placeholders until Tasks 11-13
+        for name in ("Analysis", "Tune", "History"):
             page = QWidget()
             layout = QVBoxLayout(page)
             layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -129,7 +134,8 @@ class MainWindow(QMainWindow):
         ]
         self.statusBar().showMessage(" | ".join(parts))
 
-        # Tab population will be added in Tasks 10-13
+        # Populate viewer tab with flight data
+        self.viewer_tab.load_data(flight_log)
 
     # ── Drag & Drop ─────────────────────────────────────────────
 
