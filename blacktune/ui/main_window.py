@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
 
 from blacktune.ui.theme import dark_stylesheet
 from blacktune.ui.viewer_tab import ViewerTab
+from blacktune.ui.analysis_tab import AnalysisTab
 
 # Supported file extensions for drag-and-drop filtering
 _SUPPORTED_EXTENSIONS = {".bbl", ".bfl", ".csv"}
@@ -38,8 +39,9 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1200, 800)
         self.setStyleSheet(dark_stylesheet())
 
-        # Flight log reference (populated by _load_file)
+        # Flight log and analysis references (populated by _load_file)
         self._flight_log = None  # Optional[FlightLog]
+        self._analysis_result = None  # Optional[AnalysisResult]
 
         # Tab widget exposed as public attribute for later task wiring
         self.tabs: Optional[QTabWidget] = None
@@ -80,8 +82,12 @@ class MainWindow(QMainWindow):
         self.viewer_tab = ViewerTab()
         self.tabs.addTab(self.viewer_tab, "Log Viewer")
 
-        # Remaining tabs -- placeholders until Tasks 11-13
-        for name in ("Analysis", "Tune", "History"):
+        # Analysis Dashboard -- real implementation
+        self.analysis_tab = AnalysisTab()
+        self.tabs.addTab(self.analysis_tab, "Analysis")
+
+        # Remaining tabs -- placeholders until Tasks 12-13
+        for name in ("Tune", "History"):
             page = QWidget()
             layout = QVBoxLayout(page)
             layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -136,6 +142,18 @@ class MainWindow(QMainWindow):
 
         # Populate viewer tab with flight data
         self.viewer_tab.load_data(flight_log)
+
+        # Run analysis and populate analysis tab
+        try:
+            from blacktune.analyzer import run_analysis
+
+            analysis_result = run_analysis(flight_log)
+            self._analysis_result = analysis_result
+            self.analysis_tab.load_results(flight_log, analysis_result)
+        except Exception as exc:
+            self.statusBar().showMessage(
+                f"{' | '.join(parts)} | Analysis error: {exc}"
+            )
 
     # ── Drag & Drop ─────────────────────────────────────────────
 
