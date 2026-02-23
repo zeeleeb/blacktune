@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
 from blacktune.ui.theme import dark_stylesheet
 from blacktune.ui.viewer_tab import ViewerTab
 from blacktune.ui.analysis_tab import AnalysisTab
+from blacktune.ui.tune_tab import TuneTab
 
 # Supported file extensions for drag-and-drop filtering
 _SUPPORTED_EXTENSIONS = {".bbl", ".bfl", ".csv"}
@@ -42,6 +43,7 @@ class MainWindow(QMainWindow):
         # Flight log and analysis references (populated by _load_file)
         self._flight_log = None  # Optional[FlightLog]
         self._analysis_result = None  # Optional[AnalysisResult]
+        self._recommendation = None  # Optional[TuneRecommendation]
 
         # Tab widget exposed as public attribute for later task wiring
         self.tabs: Optional[QTabWidget] = None
@@ -86,16 +88,20 @@ class MainWindow(QMainWindow):
         self.analysis_tab = AnalysisTab()
         self.tabs.addTab(self.analysis_tab, "Analysis")
 
-        # Remaining tabs -- placeholders until Tasks 12-13
-        for name in ("Tune", "History"):
-            page = QWidget()
-            layout = QVBoxLayout(page)
-            layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            placeholder = QLabel("Load a BBL file to begin")
-            placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            placeholder.setStyleSheet("color: #8888aa; font-size: 16px;")
-            layout.addWidget(placeholder)
-            self.tabs.addTab(page, name)
+        # Tune tab -- real implementation
+        self.tune_tab = TuneTab()
+        self.tune_tab.set_analyze_callback(self._on_tune_requested)
+        self.tabs.addTab(self.tune_tab, "Tune")
+
+        # History tab -- placeholder until Task 13
+        history_page = QWidget()
+        history_layout = QVBoxLayout(history_page)
+        history_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        history_placeholder = QLabel("Load a BBL file to begin")
+        history_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        history_placeholder.setStyleSheet("color: #8888aa; font-size: 16px;")
+        history_layout.addWidget(history_placeholder)
+        self.tabs.addTab(history_page, "History")
 
         self.setCentralWidget(self.tabs)
 
@@ -154,6 +160,25 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(
                 f"{' | '.join(parts)} | Analysis error: {exc}"
             )
+
+    # ── Tune recommendation ────────────────────────────────────
+
+    def _on_tune_requested(self, profile) -> None:
+        """Generate a tune recommendation when the user clicks Analyze & Tune."""
+        if self._flight_log is None or self._analysis_result is None:
+            self.statusBar().showMessage("Load and analyze a log first")
+            return
+        from blacktune.analyzer import generate_recommendation
+
+        rec = generate_recommendation(self._flight_log, profile, self._analysis_result)
+        self._recommendation = rec
+        self.tune_tab.load_recommendation(
+            self._flight_log.current_pids,
+            rec,
+            current_filters=self._flight_log.current_filters,
+        )
+        self.tabs.setCurrentWidget(self.tune_tab)
+        self.statusBar().showMessage("Tune recommendation generated")
 
     # ── Drag & Drop ─────────────────────────────────────────────
 
