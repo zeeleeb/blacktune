@@ -104,14 +104,6 @@ class TuneTab(QWidget):
         self._analyze_btn.clicked.connect(self._on_analyze_clicked)
         left.addWidget(self._analyze_btn)
 
-        # Confidence indicator
-        self._confidence_label = QLabel("")
-        self._confidence_label.setStyleSheet(
-            "color: #8888aa; font-size: 14px; background: transparent;"
-        )
-        self._confidence_label.setWordWrap(True)
-        left.addWidget(self._confidence_label)
-
         left.addStretch()
         root.addLayout(left, stretch=1)
 
@@ -260,7 +252,6 @@ class TuneTab(QWidget):
             rec.suggested_filters,
         )
         self._cli_text.setPlainText(rec.cli_commands)
-        self._update_confidence(rec.confidence)
 
     # ── Private helpers ───────────────────────────────────────────
 
@@ -370,24 +361,6 @@ class TuneTab(QWidget):
                 )
 
             self._filter_table.setItem(row, 2, sug_item)
-
-    def _update_confidence(self, confidence: float) -> None:
-        """Update the confidence indicator label."""
-        pct = int(confidence * 100)
-        if confidence >= 0.75:
-            level = "High"
-            color = "#44ff44"
-        elif confidence >= 0.50:
-            level = "Medium"
-            color = "#ffaa00"
-        else:
-            level = "Low"
-            color = "#ff6b6b"
-
-        self._confidence_label.setText(f"Confidence: {level} ({pct}%)")
-        self._confidence_label.setStyleSheet(
-            f"color: {color}; font-size: 14px; font-weight: bold; background: transparent;"
-        )
 
     def _copy_cli(self) -> None:
         """Copy CLI commands to the system clipboard."""

@@ -1,26 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""BlackTune PyInstaller spec file."""
+
 
 a = Analysis(
-    ['blacktune/main.py'],
+    ['blacktune\\main.py'],
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=[
-        'pyqtgraph',
-        'scipy.signal',
-        'scipy.fft',
-        'scipy.special',
-        'pandas',
-        'orangebox',
-    ],
+    hiddenimports=['pyqtgraph', 'scipy.signal', 'scipy.fft', 'scipy.special', 'pandas', 'orangebox'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
     noarchive=False,
+    optimize=0,
 )
 pyz = PYZ(a.pure)
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -32,6 +27,12 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,  # windowed
-    icon=None,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
 )
