@@ -123,16 +123,39 @@ def generate_recommendation(
     cli_commands = generate_cli_commands(suggested_pids, suggested_filters)
 
     # 4. Calculate confidence score
+    # Confidence = how sure we are about the SUGGESTION, not the current tune.
+    # Clear problems with strong signals = high confidence (we know what to fix).
+    # Ambiguous data or contradictory signals = low confidence.
+    total_issues = len(analysis.issues)
     good_count = sum(1 for iss in analysis.issues if iss.category == "GOOD")
     red_count = sum(1 for iss in analysis.issues if iss.severity == "red")
+    yellow_count = sum(1 for iss in analysis.issues if iss.severity == "yellow")
 
-    # Start at a base and adjust
-    # 3 axes -> max 3 GOOD.  Each GOOD adds confidence, each red subtracts.
-    confidence = 0.6
-    confidence += good_count * 0.1       # up to +0.3 for 3 GOOD axes
-    confidence -= red_count * 0.1        # each red issue reduces confidence
+    # Base confidence from having clear data
+    confidence = 0.7
 
-    # Clamp to [0.3, 0.95]
+    # Strong clear signals (red/yellow issues) = we know what's wrong = higher confidence
+    if red_count + yellow_count > 0:
+        confidence += min(0.15, (red_count + yellow_count) * 0.03)
+
+    # Already-good axes boost confidence (less to change = less risk)
+    confidence += good_count * 0.05
+
+    # Contradictory issues on same axis reduce confidence (e.g. P_HIGH + P_LOW)
+    axes_with_issues = {}
+    for iss in analysis.issues:
+        axes_with_issues.setdefault(iss.axis, []).append(iss.category)
+    for axis, cats in axes_with_issues.items():
+        if "P_HIGH" in cats and "P_LOW" in cats:
+            confidence -= 0.15
+        if "D_HIGH" in cats and "D_LOW" in cats:
+            confidence -= 0.10
+
+    # Low sample count / short flight reduces confidence
+    for metrics in analysis.step_response.values():
+        if metrics.rise_time_ms <= 0 or metrics.settling_time_ms <= 0:
+            confidence -= 0.10
+
     confidence = max(0.3, min(0.95, confidence))
 
     # 5. Collect explanations from issues
