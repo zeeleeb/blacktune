@@ -199,6 +199,9 @@ def optimize_pids(
 ) -> PIDValues:
     """Adjust current PIDs based on step response metrics and D-term analysis.
 
+    If current PIDs are zero (e.g. CSV with no header data), baseline PIDs
+    scaled for the quad profile are used as the starting point.
+
     Each axis is optimized independently. Rules:
     - Overshoot > 20%: reduce P by up to 25%
     - Overshoot < 3% AND rise_time > 50ms: increase P by up to 20%
@@ -207,6 +210,9 @@ def optimize_pids(
     - Steady-state error > 0.1: increase I by 10%
     - Safety clamps always applied
     """
+    # Fall back to profile-scaled baseline when current PIDs are zeros (CSV case)
+    baseline = get_baseline_pids(profile)
+
     axes = ["roll", "pitch", "yaw"]
     result = {}
 
@@ -214,14 +220,14 @@ def optimize_pids(
         step: StepResponseMetrics = analysis.step_response.get(axis)
         d_rms: float = analysis.d_term_rms.get(axis, 0.0)
 
-        p = getattr(current, f"{axis}_p")
-        i = getattr(current, f"{axis}_i")
-        d = getattr(current, f"{axis}_d")
-        f = getattr(current, f"{axis}_f")
+        p = getattr(current, f"{axis}_p") or getattr(baseline, f"{axis}_p")
+        i = getattr(current, f"{axis}_i") or getattr(baseline, f"{axis}_i")
+        d = getattr(current, f"{axis}_d") or getattr(baseline, f"{axis}_d")
+        f = getattr(current, f"{axis}_f") or getattr(baseline, f"{axis}_f")
 
         # D_max: yaw doesn't have d_max field in PIDValues
         if axis != "yaw":
-            d_max = getattr(current, f"{axis}_d_max")
+            d_max = getattr(current, f"{axis}_d_max") or getattr(baseline, f"{axis}_d_max")
         else:
             d_max = 0
 
